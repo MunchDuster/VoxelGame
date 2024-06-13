@@ -176,7 +176,7 @@ public class VoxelRenderer : MonoBehaviour
             return false;
 
         // r 5
-        if (!IsCoveredFace(0, 0, 0, 1, maxCubeIndex, 0, maxCubeIndex))
+        if (!IsCoveredFace(0, 0, 1, 0, maxCubeIndex, 0, maxCubeIndex))
             return false;
 
         return true;
