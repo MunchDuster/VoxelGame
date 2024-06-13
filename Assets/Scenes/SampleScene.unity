@@ -473,11 +473,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   chunkSize: 16
   material: {fileID: 2100000, guid: 354e979913deac79c97ab4c8d08a5e9d, type: 2}
-  perlinScale: 0.05
-  testChunksX: 5
-  testChunksY: 10
-  testChunksZ: 5
-  perlinHeightOffset: 6
+  perlinScale: 0.03
+  testChunksX: 20
+  testChunksY: 3
+  testChunksZ: 20
+  perlinHeightOffset: 1
   drawWorldChunkEdges: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

@@ -134,7 +134,9 @@ public class VoxelRenderer : MonoBehaviour
         //World edge check
         Vector3Int maxChunkIndex = new(testChunksX - 1, testChunksY - 1, testChunksZ - 1);
         if (chunkIndex.x == 0 || chunkIndex.y == 0 || chunkIndex.z == 0 || chunkIndex.x == maxChunkIndex.x || chunkIndex.y == maxChunkIndex.y || chunkIndex.z == maxChunkIndex.z)
-            return false;
+            {
+                return false;
+            }
 
         //Each face check
         bool IsCoveredFace(int cubeNormalIndex, int minX, int maxX, int minY, int maxY, int minZ, int maxZ)
@@ -160,27 +162,39 @@ public class VoxelRenderer : MonoBehaviour
         int maxCubeIndex = chunkSize - 1;
         // b 0
         if (!IsCoveredFace(0, 0, maxCubeIndex, 0, maxCubeIndex, maxCubeIndex, maxCubeIndex + 1))
+        {
             return false;
+        }
 
         // f 1
         if (!IsCoveredFace(1, 0, maxCubeIndex, 0, maxCubeIndex, 0, 1))
+        {
             return false;
+        }
 
         // d 2
         if (!IsCoveredFace(0, 0, maxCubeIndex, maxCubeIndex, maxCubeIndex + 1, 0, maxCubeIndex))
+        {
             return false;
+        }
 
         // u 3
         if (!IsCoveredFace(0, 0, maxCubeIndex, 0, 1, 0, maxCubeIndex))
+        {
             return false;
+        }
 
         // l 4
         if (!IsCoveredFace(0, maxCubeIndex, maxCubeIndex + 1, 0, maxCubeIndex, 0, maxCubeIndex))
+        {
             return false;
+        }
 
         // r 5
         if (!IsCoveredFace(0, 0, 1, 0, maxCubeIndex, 0, maxCubeIndex))
+        {
             return false;
+        }
 
         return true;
     }
