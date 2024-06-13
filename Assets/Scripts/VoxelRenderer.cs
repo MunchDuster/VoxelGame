@@ -34,7 +34,17 @@ public class VoxelRenderer : MonoBehaviour
         new int[6]{5, 1, 0, 0, 4, 5}, // d 2
         new int[6]{3, 2, 6, 6, 7, 3}, // u 3
         new int[6]{1, 5, 6, 6, 2, 1}, // l 4
-        new int[6]{4, 0, 3, 3, 7, 4}, // r 5
+        new int[6]{4, 0, 3, 3, 7, 4}  // r 5
+    };
+
+    private static readonly Vector3Int[] cubeNormals = new Vector3Int[6]
+    {
+        new( 0, 0,-1), // b 0
+        new( 0, 0, 1), // f 1
+        new( 0,-1, 0), // d 2
+        new( 0, 1, 0), // u 3
+        new(-1, 0, 0), // l 4
+        new( 1, 0, 0)  // r 5
     };
 
     [Header("For testing")]
@@ -43,6 +53,8 @@ public class VoxelRenderer : MonoBehaviour
     [SerializeField] private int testChunksX = 3;
     [SerializeField] private int testChunksY = 3;
     [SerializeField] private int testChunksZ = 5;
+    [SerializeField] private float perlinHeightOffset = 1;  
+    [SerializeField] private bool drawWorldChunkEdges = true;
     
     void Start()
     {
@@ -72,6 +84,19 @@ public class VoxelRenderer : MonoBehaviour
     }
     private IEnumerator MakeTestChunks()
     {
+        Dictionary<Vector3Int,int[][][]> chunkData = new();
+        for(int x = 0; x < testChunksX; x++)
+        {
+            for (int y = 0; y < testChunksY; y++)
+            {
+                for (int z = 0; z < testChunksZ; z++)
+                {
+                    Vector3Int chunkIndex = new(x,y,z);
+                    int[][][] data = GenerateChunkData(chunkIndex);
+                    chunkData.Add(chunkIndex,data);
+                }
+            }
+        } 
         for(int x = 0; x < testChunksX; x++)
         {
             for (int y = 0; y < testChunksY; y++)
@@ -81,17 +106,80 @@ public class VoxelRenderer : MonoBehaviour
                     yield return null;
 
                     Vector3Int chunkIndex = new(x,y,z);
-                    int[][][] data = GenerateChunkData(chunkIndex);
+                    int[][][] data = chunkData[chunkIndex];
 
-                    // Optimisation : skip making chunk mesh and gameobject if all data = 0
+                     // Optimisation : skip making chunk if all data = 0
                     if (data.All(plane => plane.All(row => row.All(block => block == 0))))
                         continue;
+
+                    // Optimisation : skip making chunk if completely surrounded
+                    if (IsSurroundedChunk(chunkIndex, chunkData))
+                    {
+                        Debug.Log("Skipped by surrounding");
+                        continue;
+                    }
 
                     Mesh chunkMesh = GenerateChunkMesh(chunkIndex, data);
                     MakeChunkGameObject(chunkIndex, chunkMesh);
                 }
             }
-        } 
+        }
+    }
+
+    private bool IsSurroundedChunk(Vector3Int chunkIndex, Dictionary<Vector3Int, int[][][]> chunks) 
+    {
+        //World edge check
+        Vector3Int maxChunkIndex = new(testChunksX - 1, testChunksY - 1, testChunksZ - 1);
+        if (chunkIndex.x == 0 || chunkIndex.y == 0 || chunkIndex.z == 0 || chunkIndex.x == maxChunkIndex.x || chunkIndex.y == maxChunkIndex.y || chunkIndex.z == maxChunkIndex.z)
+            return false;
+
+        //Each face check
+        bool IsCoveredFace(int cubeNormalIndex, int minX, int maxX, int minY, int maxY, int minZ, int maxZ)
+        {
+            Vector3Int otherChunkIndex = chunkIndex + cubeNormals[0];
+            int[][][] otherChunk = chunks[otherChunkIndex];
+            for(int x = minX; x < maxX; x++)
+            {
+                for (int y = minY; y < maxY; y++)
+                {
+                    for (int z = minZ; z < maxZ; z++)
+                    {
+                        if (otherChunk[x][y][z] == 0)
+                        {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        int maxCubeIndex = chunkSize - 1;
+        // b 0
+        if (!IsCoveredFace(0, 0, maxCubeIndex, 0, maxCubeIndex, maxCubeIndex, maxCubeIndex + 1))
+            return false;
+
+        // f 1
+        if (!IsCoveredFace(1, 0, maxCubeIndex, 0, maxCubeIndex, 0, 1))
+            return false;
+
+        // d 2
+        if (!IsCoveredFace(0, 0, maxCubeIndex, maxCubeIndex, maxCubeIndex + 1, 0, maxCubeIndex))
+            return false;
+
+        // u 3
+        if (!IsCoveredFace(0, 0, maxCubeIndex, 0, 1, 0, maxCubeIndex))
+            return false;
+
+        // l 4
+        if (!IsCoveredFace(0, maxCubeIndex, maxCubeIndex + 1, 0, maxCubeIndex, 0, maxCubeIndex))
+            return false;
+
+        // r 5
+        if (!IsCoveredFace(0, 0, 0, 1, maxCubeIndex, 0, maxCubeIndex))
+            return false;
+
+        return true;
     }
 
     private void MakeChunkGameObject(Vector3Int chunkIndex, Mesh mesh)
@@ -118,8 +206,8 @@ public class VoxelRenderer : MonoBehaviour
                 for (int z = 0; z < chunkSize; z++)
                 {
                     Vector3 pos = chunkIndex * chunkSize + new Vector3(x,y,z);
-                    float maxHeight = Mathf.PerlinNoise(pos.x * perlinScale, pos.z * perlinScale);
-                    float curHeight = (float)pos.y / (chunkSize * testChunksY);
+                    float maxHeight = Mathf.PerlinNoise(pos.x * perlinScale, pos.z * perlinScale) + perlinHeightOffset;
+                    float curHeight = (float)pos.y / (chunkSize);
                     data[x][y][z] = curHeight < maxHeight ? 1 : 0;
                 }
             }
@@ -131,10 +219,9 @@ public class VoxelRenderer : MonoBehaviour
     {
         // Map each chunkIndex to a mesh
         Dictionary<Vector3Int, Mesh> chunkMeshes = new();
-        IList<KeyValuePair<Vector3Int, int[][][]>> chunksList = chunks.AsReadOnlyList();
-        for(int i = 0; i < chunksList.Count; i++)
+        foreach(var pair in chunks)
         {
-            chunkMeshes.Add(chunksList[i].Key, GenerateChunkMesh(chunksList[i].Key, chunksList[i].Value));
+            chunkMeshes.Add(pair.Key, GenerateChunkMesh(pair.Key, pair.Value));
         }
 
         return chunkMeshes;
