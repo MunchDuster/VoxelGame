@@ -45,7 +45,8 @@ public class VoxelRenderer : MonoBehaviour
     
     void Start()
     {
-        MakeTestCube();
+        //MakeTestCube();
+        MakeTestChunk();
         //MakeTestChunks();
     }
 
@@ -59,7 +60,13 @@ public class VoxelRenderer : MonoBehaviour
         Mesh mesh = CreateMeshFromData(ref triangles, ref vertices);
         
         MakeChunkGameObject(mesh);
-
+    }
+    private void MakeTestChunk()
+    {
+        int[][][] testChunkData = GenerateChunkData(new(0,0,0));
+        Mesh mesh =  GenerateChunkMesh(new(0,0,0), testChunkData);
+        
+        MakeChunkGameObject(mesh);
     }
     private void MakeTestChunks()
     {
@@ -105,7 +112,7 @@ public class VoxelRenderer : MonoBehaviour
                 for (int z = 0; z < chunkSize; z++)
                 {
                     float height = Mathf.PerlinNoise(x * perlinScale, y * perlinScale);
-                    data[x][y][z] = height > y ? 1 : 0;
+                    data[x][y][z] = height > (float)y / chunkSize ? 1 : 0;
                 }
             }
         }
@@ -160,7 +167,7 @@ public class VoxelRenderer : MonoBehaviour
         vertices.AddRange(cubeVertices.Select(corner => corner + chunkOffset + cubeOffset));
 
         // Triangles
-        int cubeTrisOffset = 6 * cubeIndex;
+        int cubeTrisOffset = 8 * cubeIndex;
         triangles.AddRange(cubeFaces.SelectMany(faceTris => faceTris.Select(index => index + cubeTrisOffset)));
 
         cubeIndex++;
