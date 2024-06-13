@@ -1,5 +1,9 @@
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using Unity.VisualScripting;
 using UnityEngine;
 
 /// <summary>
@@ -9,11 +13,10 @@ using UnityEngine;
 /// </summary>
 public class VoxelRenderer : MonoBehaviour
 {
-    private const int chunkSize = 16;
+    private const int chunkSize = 4;
 
     private static readonly Vector3[] cubeVertices = new Vector3[8]
     {
-        
         new(1, 0, 0), // rdb 0
         new(0, 0, 0), // ldb 1
         new(0, 1, 0), // lub 2
@@ -48,7 +51,7 @@ public class VoxelRenderer : MonoBehaviour
     {
         //MakeTestCube();
         //MakeTestChunk();
-        MakeTestChunks();
+        StartCoroutine(MakeTestChunks());
     }
 
     private void MakeTestCube()
@@ -61,40 +64,40 @@ public class VoxelRenderer : MonoBehaviour
         AddCubeMeshData(1, ref cubeIndex, Vector3.zero, chunkIndex, ref triangles, ref vertices);
         Mesh mesh = CreateMeshFromData(ref triangles, ref vertices);
         
-        MakeChunkGameObject(mesh, chunkIndex);
+        MakeChunkGameObject(chunkIndex, mesh);
     }
     private void MakeTestChunk()
     {
         Vector3Int index = Vector3Int.zero;
         int[][][] testChunkData = GenerateChunkData(index);
-        Mesh mesh =  GenerateChunkMesh(index, testChunkData);
-        
-        MakeChunkGameObject(mesh, index);
+        Mesh mesh = GenerateChunkMesh(index, testChunkData);
+        MakeChunkGameObject(index, mesh);
     }
-    private void MakeTestChunks()
+    private IEnumerator MakeTestChunks()
     {
-        Dictionary<Vector3Int, int[][][]> testChunks = new();
         for(int x = 0; x < testChunksX; x++)
         {
             for (int y = 0; y < testChunksY; y++)
             {
                 for (int z = 0; z < testChunksZ; z++)
                 {
+                    yield return null;
+
                     Vector3Int chunkIndex = new(x,y,z);
                     int[][][] data = GenerateChunkData(chunkIndex);
-                    testChunks.Add(chunkIndex, data);
+
+                    // Optimisation : skip making chunk mesh and gameobject if all data = 0
+                    if (data.All(plane => plane.All(row => row.All(block => block == 0))))
+                        continue;
+
+                    Mesh chunkMesh = GenerateChunkMesh(chunkIndex, data);
+                    MakeChunkGameObject(chunkIndex, chunkMesh);
                 }
             }
         } 
-        Dictionary<Vector3Int, Mesh> chunkMeshes = GenerateAllChunkMeshes(testChunks);
-
-        foreach (KeyValuePair<Vector3Int, Mesh> chunkMeshPair in chunkMeshes)
-        {
-            MakeChunkGameObject(chunkMeshPair.Value, chunkMeshPair.Key);
-        }
     }
 
-    private void MakeChunkGameObject(Mesh mesh, Vector3Int chunkIndex)
+    private void MakeChunkGameObject(Vector3Int chunkIndex, Mesh mesh)
     {
         GameObject instance = new($"Chunk {chunkIndex.x} {chunkIndex.y} {chunkIndex.z}");
         instance.transform.SetParent(transform);
@@ -131,10 +134,10 @@ public class VoxelRenderer : MonoBehaviour
     {
         // Map each chunkIndex to a mesh
         Dictionary<Vector3Int, Mesh> chunkMeshes = new();
-        
-        foreach(var pair in chunks)
+        IList<KeyValuePair<Vector3Int, int[][][]>> chunksList = chunks.AsReadOnlyList();
+        for(int i = 0; i < chunksList.Count; i++)
         {
-            chunkMeshes.Add(pair.Key, GenerateChunkMesh(pair.Key, pair.Value));
+            chunkMeshes.Add(chunksList[i].Key, GenerateChunkMesh(chunksList[i].Key, chunksList[i].Value));
         }
 
         return chunkMeshes;
@@ -147,6 +150,8 @@ public class VoxelRenderer : MonoBehaviour
         List<int> triangles = new();
         int cubeIndex = 0;
         Vector3 chunkOffset = chunkIndex * chunkSize;
+        const int maxIndex = chunkSize - 1;
+        const int startIndex = 0;
 
         for(int x = 0; x < chunkSize; x++)
         {
@@ -154,7 +159,39 @@ public class VoxelRenderer : MonoBehaviour
             {
                 for (int z = 0; z < chunkSize; z++)
                 {
-                    AddCubeMeshData(chunk[x][y][z], ref cubeIndex, chunkOffset, new(x, y, z), ref triangles, ref vertices);
+                    //Check if air
+                    if (chunk[x][y][z] == 0)
+                    {
+                        continue;
+                    }
+
+                    // Vertices
+                    Vector3 cubeOffset = new(x,y,z);
+                    vertices.AddRange(cubeVertices.Select(corner => corner + chunkOffset + cubeOffset));
+
+                    // Triangles
+                    int cubeTrisOffset = 8 * cubeIndex;
+
+                    // Conditions that match with indices for cubeFaces
+                    bool[] cubeFaceChecks = {
+                        z == startIndex || chunk[x][y][z - 1] == 0, // b 0
+                        z == maxIndex   || chunk[x][y][z + 1] == 0, // f 1
+                        y == startIndex || chunk[x][y - 1][z] == 0, // d 2
+                        y == maxIndex   || chunk[x][y + 1][z] == 0, // u 3
+                        x == startIndex || chunk[x - 1][y][z] == 0, // l 4
+                        x == maxIndex   || chunk[x + 1][y][z] == 0  // r 5
+                    };
+
+                    for (int i = 0; i < cubeFaces.Length; i++)
+                    {
+                        Debug.Log($"{i}: {cubeFaceChecks[i]}");
+                        if (cubeFaceChecks[i]) 
+                        {
+                            triangles.AddRange(cubeFaces[i].Select(index => index + cubeTrisOffset));
+                        }
+                    }
+
+                    cubeIndex++;
                 }
             }
         }

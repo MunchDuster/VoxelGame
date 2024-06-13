@@ -453,7 +453,7 @@ Transform:
   m_GameObject: {fileID: 1968060453}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 35.72878, y: -0.033320427, z: 103.67229}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -472,8 +472,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   material: {fileID: 2100000, guid: 354e979913deac79c97ab4c8d08a5e9d, type: 2}
-  perlinScale: 0.01
-  testChunksX: 10
+  perlinScale: 0.05
+  testChunksX: 5
   testChunksY: 3
   testChunksZ: 10
 --- !u!1660057539 &9223372036854775807
