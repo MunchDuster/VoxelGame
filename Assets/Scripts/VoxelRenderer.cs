@@ -9,7 +9,7 @@ using UnityEngine;
 /// </summary>
 public class VoxelRenderer : MonoBehaviour
 {
-    private const int chunkSize = 4;
+    private const int chunkSize = 16;
 
     private static readonly Vector3[] cubeVertices = new Vector3[8]
     {
@@ -41,13 +41,14 @@ public class VoxelRenderer : MonoBehaviour
     [SerializeField] private Material material;
     [SerializeField] private float perlinScale = 0.5f;
     [SerializeField] private int testChunksX = 3;
+    [SerializeField] private int testChunksY = 3;
     [SerializeField] private int testChunksZ = 5;
     
     void Start()
     {
         //MakeTestCube();
-        MakeTestChunk();
-        //MakeTestChunks();
+        //MakeTestChunk();
+        MakeTestChunks();
     }
 
     private void MakeTestCube()
@@ -56,43 +57,48 @@ public class VoxelRenderer : MonoBehaviour
         List<Vector3> vertices = new();
         List<int> triangles = new();
         int cubeIndex = 0;
-        AddCubeMeshData(1, ref cubeIndex, Vector3.zero, Vector3.zero, ref triangles, ref vertices);
+        Vector3Int chunkIndex = Vector3Int.zero;
+        AddCubeMeshData(1, ref cubeIndex, Vector3.zero, chunkIndex, ref triangles, ref vertices);
         Mesh mesh = CreateMeshFromData(ref triangles, ref vertices);
         
-        MakeChunkGameObject(mesh);
+        MakeChunkGameObject(mesh, chunkIndex);
     }
     private void MakeTestChunk()
     {
-        int[][][] testChunkData = GenerateChunkData(new(0,0,0));
-        Mesh mesh =  GenerateChunkMesh(new(0,0,0), testChunkData);
+        Vector3Int index = Vector3Int.zero;
+        int[][][] testChunkData = GenerateChunkData(index);
+        Mesh mesh =  GenerateChunkMesh(index, testChunkData);
         
-        MakeChunkGameObject(mesh);
+        MakeChunkGameObject(mesh, index);
     }
     private void MakeTestChunks()
     {
-        const int y = 0;
         Dictionary<Vector3Int, int[][][]> testChunks = new();
         for(int x = 0; x < testChunksX; x++)
         {
-            for (int z = 0; z < testChunksZ; z++)
+            for (int y = 0; y < testChunksY; y++)
             {
-                Vector3Int chunkIndex = new(x,y,z);
-                int[][][] data = GenerateChunkData(chunkIndex);
-                testChunks.Add(chunkIndex, data);
+                for (int z = 0; z < testChunksZ; z++)
+                {
+                    Vector3Int chunkIndex = new(x,y,z);
+                    int[][][] data = GenerateChunkData(chunkIndex);
+                    testChunks.Add(chunkIndex, data);
+                }
             }
         } 
         Dictionary<Vector3Int, Mesh> chunkMeshes = GenerateAllChunkMeshes(testChunks);
 
         foreach (KeyValuePair<Vector3Int, Mesh> chunkMeshPair in chunkMeshes)
         {
-            MakeChunkGameObject(chunkMeshPair.Value);
+            MakeChunkGameObject(chunkMeshPair.Value, chunkMeshPair.Key);
         }
     }
 
-    private void MakeChunkGameObject(Mesh mesh)
+    private void MakeChunkGameObject(Mesh mesh, Vector3Int chunkIndex)
     {
-        GameObject instance = new();
-            
+        GameObject instance = new($"Chunk {chunkIndex.x} {chunkIndex.y} {chunkIndex.z}");
+        instance.transform.SetParent(transform);
+
         MeshRenderer meshRenderer = instance.AddComponent<MeshRenderer>();
         meshRenderer.material = material;
 
@@ -111,8 +117,10 @@ public class VoxelRenderer : MonoBehaviour
                 data[x][y] = new int[chunkSize];
                 for (int z = 0; z < chunkSize; z++)
                 {
-                    float height = Mathf.PerlinNoise(x * perlinScale, y * perlinScale);
-                    data[x][y][z] = height > (float)y / chunkSize ? 1 : 0;
+                    Vector3 pos = chunkIndex * chunkSize + new Vector3(x,y,z);
+                    float maxHeight = Mathf.PerlinNoise(pos.x * perlinScale, pos.z * perlinScale);
+                    float curHeight = (float)pos.y / (chunkSize * testChunksY);
+                    data[x][y][z] = curHeight < maxHeight ? 1 : 0;
                 }
             }
         }

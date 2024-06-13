@@ -472,6 +472,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   material: {fileID: 2100000, guid: 354e979913deac79c97ab4c8d08a5e9d, type: 2}
+  perlinScale: 0.01
+  testChunksX: 10
+  testChunksY: 3
+  testChunksZ: 10
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
