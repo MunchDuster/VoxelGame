@@ -78,7 +78,10 @@ public class VoxelRenderer : MonoBehaviour
     private void MakeTestChunk()
     {
         Vector3Int index = Vector3Int.zero;
-        int[][][] testChunkData = GenerateChunkData(index);
+        Dictionary<Vector3Int,int[][][]> testChunkData = new()
+        {
+            { index, GenerateChunkData(index) }
+        };
         Mesh mesh = GenerateChunkMesh(index, testChunkData);
         MakeChunkGameObject(index, mesh);
     }
@@ -119,7 +122,7 @@ public class VoxelRenderer : MonoBehaviour
                         continue;
                     }
 
-                    Mesh chunkMesh = GenerateChunkMesh(chunkIndex, data);
+                    Mesh chunkMesh = GenerateChunkMesh(chunkIndex, chunkData);
                     MakeChunkGameObject(chunkIndex, chunkMesh);
                 }
             }
@@ -221,13 +224,13 @@ public class VoxelRenderer : MonoBehaviour
         Dictionary<Vector3Int, Mesh> chunkMeshes = new();
         foreach(var pair in chunks)
         {
-            chunkMeshes.Add(pair.Key, GenerateChunkMesh(pair.Key, pair.Value));
+            chunkMeshes.Add(pair.Key, GenerateChunkMesh(pair.Key, chunks));
         }
 
         return chunkMeshes;
     }
 
-    private Mesh GenerateChunkMesh(Vector3Int chunkIndex, int[][][] chunk)
+    private Mesh GenerateChunkMesh(Vector3Int chunkIndex, Dictionary<Vector3Int, int[][][]> chunks)
     {
         // Calculate all the grunt data for the mesh
         List<Vector3> vertices = new();
@@ -235,8 +238,9 @@ public class VoxelRenderer : MonoBehaviour
         int cubeIndex = 0;
         Vector3 chunkOffset = chunkIndex * chunkSize;
         int maxIndex = chunkSize - 1;
-        const int startIndex = 0;
+        Vector3Int maxChunkIndex = new(testChunksX - 1, testChunksY - 1, testChunksZ - 1);
 
+        int[][][] chunk = chunks[chunkIndex];
         for(int x = 0; x < chunkSize; x++)
         {
             for (int y = 0; y < chunkSize; y++)
@@ -256,19 +260,18 @@ public class VoxelRenderer : MonoBehaviour
                     // Triangles
                     int cubeTrisOffset = 8 * cubeIndex;
 
-                    // Conditions that match with indices for cubeFaces
-                    bool[] cubeFaceChecks = {
-                        z == startIndex || chunk[x][y][z - 1] == 0, // b 0
-                        z == maxIndex   || chunk[x][y][z + 1] == 0, // f 1
-                        y == startIndex || chunk[x][y - 1][z] == 0, // d 2
-                        y == maxIndex   || chunk[x][y + 1][z] == 0, // u 3
-                        x == startIndex || chunk[x - 1][y][z] == 0, // l 4
-                        x == maxIndex   || chunk[x + 1][y][z] == 0  // r 5
-                    };
+                    // Conditions that match with indices for cubeFaces, answers whether 
+                    bool[] cubeFaceChecks = new bool[6];
+                    cubeFaceChecks[0] = (z == 0        && chunkIndex.z > 0               && chunks[chunkIndex + cubeNormals[0]][x][y][maxIndex] == 0) || (z > 0        && chunk[x][y][z - 1] == 0); // b 0
+                    cubeFaceChecks[1] = (z == maxIndex && chunkIndex.z < maxChunkIndex.z && chunks[chunkIndex + cubeNormals[1]][x][y][0       ] == 0) || (z < maxIndex && chunk[x][y][z + 1] == 0); // f 1
+                    cubeFaceChecks[2] = (y == 0        && chunkIndex.y > 0               && chunks[chunkIndex + cubeNormals[2]][x][maxIndex][z] == 0) || (y > 0        && chunk[x][y - 1][z] == 0); // d 2
+                    cubeFaceChecks[3] = (y == maxIndex && chunkIndex.y < maxChunkIndex.y && chunks[chunkIndex + cubeNormals[3]][x][0       ][z] == 0) || (y < maxIndex && chunk[x][y + 1][z] == 0); // u 3
+                    cubeFaceChecks[4] = (x == 0        && chunkIndex.x > 0               && chunks[chunkIndex + cubeNormals[4]][maxIndex][y][z] == 0) || (x > 0        && chunk[x - 1][y][z] == 0); // l 4
+                    cubeFaceChecks[5] = (x == maxIndex && chunkIndex.x < maxChunkIndex.x && chunks[chunkIndex + cubeNormals[5]][0       ][y][z] == 0) || (x < maxIndex && chunk[x + 1][y][z] == 0); // r 5
 
                     for (int i = 0; i < cubeFaces.Length; i++)
                     {
-                        if (cubeFaceChecks[i]) 
+                        if (cubeFaceChecks[i])
                         {
                             triangles.AddRange(cubeFaces[i].Select(index => index + cubeTrisOffset));
                         }
