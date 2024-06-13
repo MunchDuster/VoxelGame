@@ -1,9 +1,6 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
-using Unity.VisualScripting;
 using UnityEngine;
 
 /// <summary>
@@ -13,7 +10,7 @@ using UnityEngine;
 /// </summary>
 public class VoxelRenderer : MonoBehaviour
 {
-    private const int chunkSize = 4;
+    [SerializeField] private int chunkSize = 4;
 
     private static readonly Vector3[] cubeVertices = new Vector3[8]
     {
@@ -150,7 +147,7 @@ public class VoxelRenderer : MonoBehaviour
         List<int> triangles = new();
         int cubeIndex = 0;
         Vector3 chunkOffset = chunkIndex * chunkSize;
-        const int maxIndex = chunkSize - 1;
+        int maxIndex = chunkSize - 1;
         const int startIndex = 0;
 
         for(int x = 0; x < chunkSize; x++)
@@ -184,7 +181,6 @@ public class VoxelRenderer : MonoBehaviour
 
                     for (int i = 0; i < cubeFaces.Length; i++)
                     {
-                        Debug.Log($"{i}: {cubeFaceChecks[i]}");
                         if (cubeFaceChecks[i]) 
                         {
                             triangles.AddRange(cubeFaces[i].Select(index => index + cubeTrisOffset));
@@ -225,8 +221,8 @@ public class VoxelRenderer : MonoBehaviour
             vertices = vertices.ToArray(),
             triangles = triangles.ToArray()
         };
-        mesh.RecalculateNormals();
         mesh.Optimize();
+        mesh.RecalculateNormals();
         return mesh;
     }
 }

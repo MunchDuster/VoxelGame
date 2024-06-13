@@ -471,11 +471,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 401e0e5329c7b1cab8fa1b7cc28df392, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  chunkSize: 16
   material: {fileID: 2100000, guid: 354e979913deac79c97ab4c8d08a5e9d, type: 2}
   perlinScale: 0.05
-  testChunksX: 5
-  testChunksY: 3
-  testChunksZ: 10
+  testChunksX: 20
+  testChunksY: 5
+  testChunksZ: 20
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
