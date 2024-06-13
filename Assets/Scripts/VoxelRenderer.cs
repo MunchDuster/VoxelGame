@@ -260,7 +260,7 @@ public class VoxelRenderer : MonoBehaviour
                     // Triangles
                     int cubeTrisOffset = 8 * cubeIndex;
 
-                    // Conditions that match with indices for cubeFaces, answers whether 
+                    // Conditions that match with indices for cubeFaces, answers whether the face should be drawn or not
                     bool[] cubeFaceChecks = new bool[6];
                     cubeFaceChecks[0] = (z == 0        && chunkIndex.z > 0               && chunks[chunkIndex + cubeNormals[0]][x][y][maxIndex] == 0) || (z > 0        && chunk[x][y][z - 1] == 0); // b 0
                     cubeFaceChecks[1] = (z == maxIndex && chunkIndex.z < maxChunkIndex.z && chunks[chunkIndex + cubeNormals[1]][x][y][0       ] == 0) || (z < maxIndex && chunk[x][y][z + 1] == 0); // f 1
