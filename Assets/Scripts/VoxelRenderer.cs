@@ -1,15 +1,16 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using UnityEngine;
 
 /// <summary>
 /// Generates meshes for chunks
-/// TODO: 1. Join adjacent vertices (within chunk)
 /// </summary>
 public class VoxelRenderer : MonoBehaviour
 {
     [SerializeField] private int chunkSize = 4;
+    private const float colorMapTileSize = 0.33f;
 
     private static readonly Vector3Int[] cubeVertices = new Vector3Int[8]
     {
@@ -29,7 +30,7 @@ public class VoxelRenderer : MonoBehaviour
     private static readonly int[][] cubeFaces = new int[6][]
     {
         new int[6]{0, 1, 2, 2, 3, 0}, // b 0
-        new int[6]{6, 5, 4, 4, 7, 6}, // f 1
+        new int[6]{5, 4, 7, 7, 6, 5}, // f 1
         new int[6]{5, 1, 0, 0, 4, 5}, // d 2
         new int[6]{3, 2, 6, 6, 7, 3}, // u 3
         new int[6]{1, 5, 6, 6, 2, 1}, // l 4
@@ -45,6 +46,32 @@ public class VoxelRenderer : MonoBehaviour
         new(-1, 0, 0), // l 4
         new( 1, 0, 0)  // r 5
     };
+
+    private const float uvPadding = 0.1f;
+    private static readonly Vector2[] faceUVs = new Vector2[6] 
+    {
+        new(uvPadding                   , uvPadding     ), 
+        new(colorMapTileSize - uvPadding, uvPadding     ), 
+        new(colorMapTileSize - uvPadding, 1 - uvPadding ), 
+        new(colorMapTileSize - uvPadding, 1 - uvPadding ), 
+        new(uvPadding                   , 1 - uvPadding ), 
+        new(uvPadding                   , uvPadding     )
+    };
+    /// <summary>
+    /// The uvs coordinates for each vertex corresponding to the triangles on faces
+    /// </summary>
+    private static readonly Vector2[] faceTypeUVOffsets = new Vector2[3]
+    {
+        new(0,0), // top
+        new(colorMapTileSize,0), // sides
+        new(2*colorMapTileSize,0), // bottom
+    };
+
+    private static readonly int[] faceToFaceType = new int[6]
+    {
+        1, 1, 2, 0, 1, 1 // all are side/bottom, top is top
+    };
+
 
     [Header("For testing")]
     [SerializeField] private Material material;
@@ -268,9 +295,6 @@ public class VoxelRenderer : MonoBehaviour
                         continue;
                     }
 
-                    // Uvs
-
-
                     // Conditions that match with indices for cubeFaces, answers whether the face should be drawn or not
                     bool[] cubeFaceChecks = new bool[6];
                     cubeFaceChecks[0] = (z == 0        && chunkIndex.z > 0               && chunks[chunkIndex + cubeNormals[0]][x][y][maxIndex] == 0) || (z > 0        && chunk[x][y][z - 1] == 0); // b 0
@@ -280,15 +304,22 @@ public class VoxelRenderer : MonoBehaviour
                     cubeFaceChecks[4] = (x == 0        && chunkIndex.x > 0               && chunks[chunkIndex + cubeNormals[4]][maxIndex][y][z] == 0) || (x > 0        && chunk[x - 1][y][z] == 0); // l 4
                     cubeFaceChecks[5] = (x == maxIndex && chunkIndex.x < maxChunkIndex.x && chunks[chunkIndex + cubeNormals[5]][0       ][y][z] == 0) || (x < maxIndex && chunk[x + 1][y][z] == 0); // r 5
 
-                    // Triangles and vertices
-                    for (int i = 0; i < cubeFaces.Length; i++)
+                    for (int faceIndex = 0; faceIndex < cubeFaces.Length; faceIndex++)
                     {
-                        if (cubeFaceChecks[i])
+                        if (cubeFaceChecks[faceIndex])
                         {
-                            triangles.AddRange(cubeFaces[i].Select(index => {
-                                vertices.Add(cubeVertices[index] + new Vector3Int(x,y,z) + chunkOffset);
-                                return vertices.Count - 1;
-                            }));
+                            for(int triangleIndex = 0; triangleIndex < cubeFaces[faceIndex].Length; triangleIndex++)
+                            {
+                                // Vertices
+                                int cubeVertexIndex = cubeFaces[faceIndex][triangleIndex];
+                                vertices.Add(cubeVertices[cubeVertexIndex] + new Vector3Int(x,y,z) + chunkOffset);
+
+                                // UVs
+                                uvs.Add(faceTypeUVOffsets[faceToFaceType[faceIndex]] + faceUVs[triangleIndex]);
+
+                                // Triangles
+                                triangles.Add(vertices.Count - 1);
+                            }
                             cubeIndex++;
                         }
                     }
@@ -310,23 +341,23 @@ public class VoxelRenderer : MonoBehaviour
             return;
         }
 
-        // Vertices
-        vertices.AddRange(cubeVertices.Select(corner => corner + chunkOffset + cubeOffset));
+        for (int faceIndex = 0; faceIndex < cubeFaces.Length; faceIndex++)
+        {
+            for(int triangleIndex = 0; triangleIndex < cubeFaces[faceIndex].Length; triangleIndex++)
+            {
+                // Vertices
+                int cubeVertexIndex = cubeFaces[faceIndex][triangleIndex];
+                vertices.Add(cubeVertices[cubeVertexIndex] + new Vector3Int(0,0,0) + chunkOffset);
 
-        // Triangles
-        int cubeTrisOffset = 8 * cubeIndex;
-        triangles.AddRange(cubeFaces.SelectMany(faceTris => faceTris.Select(index => index + cubeTrisOffset)));
+                // UVs
+                if (faceToFaceType[faceIndex] == 0)
+                    Debug.Log("Side/bottom face");
+                uvs.Add(faceTypeUVOffsets[faceToFaceType[faceIndex]] + faceUVs[triangleIndex]);
 
-        // Normals
-        uvs.Add(new(0,0));
-        uvs.Add(new(0,1));
-        uvs.Add(new(1,0));
-        uvs.Add(new(1,1));
-        uvs.Add(new(0,0));
-        uvs.Add(new(0,1));
-        uvs.Add(new(1,0));
-        uvs.Add(new(1,1));
-        cubeIndex++;
+                // Triangles
+                triangles.Add(vertices.Count - 1);
+            }
+        }
     }
 
     private Mesh CreateMeshFromData(ref List<int> triangles, ref List<Vector3> vertices, ref List<Vector2> uvs)
