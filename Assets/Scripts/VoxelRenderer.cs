@@ -6,13 +6,12 @@ using UnityEngine;
 /// <summary>
 /// Generates meshes for chunks
 /// TODO: 1. Join adjacent vertices (within chunk)
-/// TODO: 2. Dont add faces that wont be visible (within chunk)
 /// </summary>
 public class VoxelRenderer : MonoBehaviour
 {
     [SerializeField] private int chunkSize = 4;
 
-    private static readonly Vector3[] cubeVertices = new Vector3[8]
+    private static readonly Vector3Int[] cubeVertices = new Vector3Int[8]
     {
         new(1, 0, 0), // rdb 0
         new(0, 0, 0), // ldb 1
@@ -58,8 +57,8 @@ public class VoxelRenderer : MonoBehaviour
     
     void Start()
     {
-        //MakeTestCube();
-        //MakeTestChunk();
+        // MakeTestCube();
+        // MakeTestChunk();
         StartCoroutine(MakeTestChunks());
     }
 
@@ -68,10 +67,11 @@ public class VoxelRenderer : MonoBehaviour
         // Create cube mesh
         List<Vector3> vertices = new();
         List<int> triangles = new();
+        List<Vector2> uvs = new();
         int cubeIndex = 0;
         Vector3Int chunkIndex = Vector3Int.zero;
-        AddCubeMeshData(1, ref cubeIndex, Vector3.zero, chunkIndex, ref triangles, ref vertices);
-        Mesh mesh = CreateMeshFromData(ref triangles, ref vertices);
+        AddCubeMeshData(1, ref cubeIndex, Vector3.zero, chunkIndex, ref triangles, ref vertices, ref uvs);
+        Mesh mesh = CreateMeshFromData(ref triangles, ref vertices, ref uvs);
         
         MakeChunkGameObject(chunkIndex, mesh);
     }
@@ -131,14 +131,14 @@ public class VoxelRenderer : MonoBehaviour
 
     private bool IsSurroundedChunk(Vector3Int chunkIndex, Dictionary<Vector3Int, int[][][]> chunks) 
     {
-        //World edge check
+        // World edge check
         Vector3Int maxChunkIndex = new(testChunksX - 1, testChunksY - 1, testChunksZ - 1);
         if (chunkIndex.x == 0 || chunkIndex.y == 0 || chunkIndex.z == 0 || chunkIndex.x == maxChunkIndex.x || chunkIndex.y == maxChunkIndex.y || chunkIndex.z == maxChunkIndex.z)
-            {
-                return false;
-            }
+        {
+            return false;
+        }
 
-        //Each face check
+        // Each face check
         bool IsCoveredFace(int cubeNormalIndex, int minX, int maxX, int minY, int maxY, int minZ, int maxZ)
         {
             Vector3Int otherChunkIndex = chunkIndex + cubeNormals[0];
@@ -247,10 +247,11 @@ public class VoxelRenderer : MonoBehaviour
     private Mesh GenerateChunkMesh(Vector3Int chunkIndex, Dictionary<Vector3Int, int[][][]> chunks)
     {
         // Calculate all the grunt data for the mesh
-        List<Vector3> vertices = new();
+        List<Vector3Int> vertices = new();
         List<int> triangles = new();
+        List<Vector2> uvs = new();
         int cubeIndex = 0;
-        Vector3 chunkOffset = chunkIndex * chunkSize;
+        Vector3Int chunkOffset = chunkIndex * chunkSize;
         int maxIndex = chunkSize - 1;
         Vector3Int maxChunkIndex = new(testChunksX - 1, testChunksY - 1, testChunksZ - 1);
 
@@ -261,18 +262,14 @@ public class VoxelRenderer : MonoBehaviour
             {
                 for (int z = 0; z < chunkSize; z++)
                 {
-                    //Check if air
+                    // Check if air
                     if (chunk[x][y][z] == 0)
                     {
                         continue;
                     }
 
-                    // Vertices
-                    Vector3 cubeOffset = new(x,y,z);
-                    vertices.AddRange(cubeVertices.Select(corner => corner + chunkOffset + cubeOffset));
+                    // Uvs
 
-                    // Triangles
-                    int cubeTrisOffset = 8 * cubeIndex;
 
                     // Conditions that match with indices for cubeFaces, answers whether the face should be drawn or not
                     bool[] cubeFaceChecks = new bool[6];
@@ -283,26 +280,31 @@ public class VoxelRenderer : MonoBehaviour
                     cubeFaceChecks[4] = (x == 0        && chunkIndex.x > 0               && chunks[chunkIndex + cubeNormals[4]][maxIndex][y][z] == 0) || (x > 0        && chunk[x - 1][y][z] == 0); // l 4
                     cubeFaceChecks[5] = (x == maxIndex && chunkIndex.x < maxChunkIndex.x && chunks[chunkIndex + cubeNormals[5]][0       ][y][z] == 0) || (x < maxIndex && chunk[x + 1][y][z] == 0); // r 5
 
+                    // Triangles and vertices
                     for (int i = 0; i < cubeFaces.Length; i++)
                     {
                         if (cubeFaceChecks[i])
                         {
-                            triangles.AddRange(cubeFaces[i].Select(index => index + cubeTrisOffset));
+                            triangles.AddRange(cubeFaces[i].Select(index => {
+                                vertices.Add(cubeVertices[index] + new Vector3Int(x,y,z) + chunkOffset);
+                                return vertices.Count - 1;
+                            }));
+                            cubeIndex++;
                         }
                     }
 
-                    cubeIndex++;
                 }
             }
         }
+        List<Vector3> verts = vertices.Select(point => (Vector3)point).ToList();
 
         // Actually make the mesh
-        return CreateMeshFromData(ref triangles, ref vertices);
+        return CreateMeshFromData(ref triangles, ref verts, ref uvs);
     }
 
-    private void AddCubeMeshData(int cubeType, ref int cubeIndex, Vector3 chunkOffset, Vector3 cubeOffset, ref List<int> triangles, ref List<Vector3> vertices)
+    private void AddCubeMeshData(int cubeType, ref int cubeIndex, Vector3 chunkOffset, Vector3 cubeOffset, ref List<int> triangles, ref List<Vector3> vertices, ref List<Vector2> uvs)
     {
-        //Check if air
+        // Check if air
         if (cubeType == 0)
         {
             return;
@@ -315,17 +317,26 @@ public class VoxelRenderer : MonoBehaviour
         int cubeTrisOffset = 8 * cubeIndex;
         triangles.AddRange(cubeFaces.SelectMany(faceTris => faceTris.Select(index => index + cubeTrisOffset)));
 
+        // Normals
+        uvs.Add(new(0,0));
+        uvs.Add(new(0,1));
+        uvs.Add(new(1,0));
+        uvs.Add(new(1,1));
+        uvs.Add(new(0,0));
+        uvs.Add(new(0,1));
+        uvs.Add(new(1,0));
+        uvs.Add(new(1,1));
         cubeIndex++;
     }
 
-    private Mesh CreateMeshFromData(ref List<int> triangles, ref List<Vector3> vertices)
+    private Mesh CreateMeshFromData(ref List<int> triangles, ref List<Vector3> vertices, ref List<Vector2> uvs)
     {
         Mesh mesh = new()
         {
             vertices = vertices.ToArray(),
-            triangles = triangles.ToArray()
+            triangles = triangles.ToArray(),
+            uv = uvs.ToArray()
         };
-        mesh.Optimize();
         mesh.RecalculateNormals();
         return mesh;
     }
