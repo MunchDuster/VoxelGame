@@ -10,6 +10,7 @@ using UnityEngine;
 public class VoxelRenderer : MonoBehaviour
 {
     [SerializeField] private int chunkSize = 4;
+    [SerializeField] private float threshold = 0.5f;
     private const float colorMapTileSize = 0.33f;
 
     private static readonly Vector3Int[] cubeVertices = new Vector3Int[8]
@@ -143,11 +144,11 @@ public class VoxelRenderer : MonoBehaviour
                         continue;
 
                     // Optimisation : skip making chunk if completely surrounded
-                    if (IsSurroundedChunk(chunkIndex, chunkData))
-                    {
-                        Debug.Log("Skipped by surrounding");
-                        continue;
-                    }
+                    // if (IsSurroundedChunk(chunkIndex, chunkData))
+                    // {
+                    //     Debug.Log("Skipped by surrounding");
+                    //     continue;
+                    // }
 
                     Mesh chunkMesh = GenerateChunkMesh(chunkIndex, chunkData);
                     MakeChunkGameObject(chunkIndex, chunkMesh);
@@ -250,14 +251,31 @@ public class VoxelRenderer : MonoBehaviour
                 for (int z = 0; z < chunkSize; z++)
                 {
                     Vector3 pos = chunkIndex * chunkSize + new Vector3(x,y,z);
-                    float maxHeight = Mathf.PerlinNoise(pos.x * perlinScale, pos.z * perlinScale) + perlinHeightOffset;
-                    float curHeight = (float)pos.y / (chunkSize);
-                    data[x][y][z] = curHeight < maxHeight ? 1 : 0;
+                    float pointValue = GetPointValue(pos);
+                    data[x][y][z] = pointValue > threshold ? 1 : 0;
                 }
             }
         }
         return data;
     }
+
+    private float GetPointValue(Vector3 pos)
+    {
+        pos = pos * perlinScale;
+        float x = pos.x, y = pos.y, z = pos.z;
+        float XY = Mathf.PerlinNoise(x, y);
+        float YZ = Mathf.PerlinNoise(y, z);
+        float ZX = Mathf.PerlinNoise(z, x);
+        
+        float YX = Mathf.PerlinNoise(y, z);
+        float ZY = Mathf.PerlinNoise(z, y);
+        float XZ = Mathf.PerlinNoise(x, z);
+        
+        float val = (XY + YZ + ZX + YX + ZY + XZ)/6f;
+        return val;
+    }
+
+    
 
     public Dictionary<Vector3Int, Mesh> GenerateAllChunkMeshes(Dictionary<Vector3Int, int[][][]> chunks)
     {
