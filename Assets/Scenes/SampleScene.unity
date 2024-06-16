@@ -472,14 +472,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   chunkSize: 16
-  threshold: 0.5
+  perlinThreshold: 0.5
   material: {fileID: 2100000, guid: 354e979913deac79c97ab4c8d08a5e9d, type: 2}
   perlinScale: 0.02
-  testChunksX: 20
-  testChunksY: 20
-  testChunksZ: 20
-  perlinHeightOffset: 1
-  drawWorldChunkEdges: 1
+  testChunksX: 10
+  testChunksY: 1
+  testChunksZ: 10
+  perlinHeightOffset: 4
+  drawWorldChunkEdges: 0
+  isDebuggingData: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
